@@ -31,7 +31,7 @@ export default function HomePage() {
             letterSpacing: "-0.04em"
           }}
         >
-          Минимальное Next.js приложение
+          Я изучаю Next.js
         </h1>
         <p
           style={{
