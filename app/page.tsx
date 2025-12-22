@@ -121,17 +121,31 @@ export default function HomePage() {
         </div>
       </section>
 
-      {(error || result || isLoading || activeMode) && (
+      {isLoading && (
+        <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-100">
+              Генерация ответа
+            </h2>
+            <span className="text-xs text-sky-400">
+              Идёт обработка статьи…
+            </span>
+          </div>
+          <p className="text-xs text-slate-400">
+            Мы анализируем текст по указанному URL и подготавливаем {activeMode && getModeLabel(activeMode).toLowerCase()}.
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="h-full w-1/2 animate-pulse bg-sky-500" />
+          </div>
+        </section>
+      )}
+
+      {(error || result || activeMode) && (
         <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-100">
               {activeMode ? `Результат: ${getModeLabel(activeMode)}` : "Результат"}
             </h2>
-            {isLoading && (
-              <span className="text-xs text-sky-400">
-                Анализируем статью…
-              </span>
-            )}
           </div>
 
           {error && (
@@ -146,7 +160,7 @@ export default function HomePage() {
             </pre>
           )}
 
-          {!error && !result && !isLoading && (
+          {!error && !result && !isLoading && activeMode && (
             <p className="text-sm text-slate-500">
               Выберите действие, чтобы увидеть результат анализа статьи.
             </p>
