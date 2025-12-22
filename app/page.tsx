@@ -11,7 +11,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
-  const handleClick = (mode: Mode) => {
+  const handleClick = async (mode: Mode) => {
     setActiveMode(mode);
     setError(null);
     setResult(null);
@@ -21,36 +21,30 @@ export default function HomePage() {
       return;
     }
 
-    // Здесь в будущем будет реальный вызов API:
-    // fetch("/api/analyze", { method: "POST", body: JSON.stringify({ url, mode }) })
-
     setIsLoading(true);
 
-    // Демонстрационный мок-результат вместо реального AI
-    setTimeout(() => {
-      let demoText = "";
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ url, mode })
+      });
 
-      if (mode === "about") {
-        demoText =
-          "Это пример описания: кратко объясняем, о чём статья по указанной ссылке. " +
-          "При подключении AI здесь будет реальное резюме содержимого.";
-      } else if (mode === "thesis") {
-        demoText = [
-          "— Краткий тезис 1 по содержанию статьи.",
-          "— Краткий тезис 2, иллюстрирующий основной аргумент.",
-          "— Краткий тезис 3, отражающий выводы автора."
-        ].join("\n");
-      } else if (mode === "telegram") {
-        demoText =
-          "Вот пример поста для Telegram на основе статьи.\n\n" +
-          "1) Захватывающий заход, который объясняет, почему тема важна.\n" +
-          "2) 2–3 ключевых мысли из статьи простым языком.\n" +
-          "3) Призыв перейти по ссылке и прочитать оригинал.";
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data?.error || "Не удалось разобрать статью. Попробуйте другой URL.");
+        return;
       }
 
-      setResult(demoText);
+      setResult(JSON.stringify(data, null, 2));
+    } catch (e) {
+      setError("Произошла ошибка сети при обращении к API. Попробуйте ещё раз.");
+    } finally {
       setIsLoading(false);
-    }, 700);
+    }
   };
 
   const getModeLabel = (mode: Mode) => {
