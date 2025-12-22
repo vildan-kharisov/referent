@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Mode = "about" | "thesis" | "telegram" | null;
+type Mode = "parse" | "about" | "thesis" | "telegram" | null;
 
 export default function HomePage() {
   const [url, setUrl] = useState("");
@@ -48,6 +48,7 @@ export default function HomePage() {
   };
 
   const getModeLabel = (mode: Mode) => {
+    if (mode === "parse") return "Парсить статью";
     if (mode === "about") return "О чём статья?";
     if (mode === "thesis") return "Тезисы";
     if (mode === "telegram") return "Пост для Telegram";
@@ -79,6 +80,17 @@ export default function HomePage() {
         </label>
 
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => handleClick("parse")}
+            className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
+              activeMode === "parse"
+                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
+                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+            }`}
+          >
+            Парсить статью
+          </button>
           <button
             type="button"
             onClick={() => handleClick("about")}
