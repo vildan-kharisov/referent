@@ -1,67 +1,158 @@
+"use client";
+
+import { useState } from "react";
+
+type Mode = "about" | "thesis" | "telegram" | null;
+
 export default function HomePage() {
+  const [url, setUrl] = useState("");
+  const [activeMode, setActiveMode] = useState<Mode>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+
+  const handleClick = (mode: Mode) => {
+    setActiveMode(mode);
+    setError(null);
+    setResult(null);
+
+    if (!url.trim()) {
+      setError("Пожалуйста, введите URL англоязычной статьи.");
+      return;
+    }
+
+    // Здесь в будущем будет реальный вызов API:
+    // fetch("/api/analyze", { method: "POST", body: JSON.stringify({ url, mode }) })
+
+    setIsLoading(true);
+
+    // Демонстрационный мок-результат вместо реального AI
+    setTimeout(() => {
+      let demoText = "";
+
+      if (mode === "about") {
+        demoText =
+          "Это пример описания: кратко объясняем, о чём статья по указанной ссылке. " +
+          "При подключении AI здесь будет реальное резюме содержимого.";
+      } else if (mode === "thesis") {
+        demoText = [
+          "— Краткий тезис 1 по содержанию статьи.",
+          "— Краткий тезис 2, иллюстрирующий основной аргумент.",
+          "— Краткий тезис 3, отражающий выводы автора."
+        ].join("\n");
+      } else if (mode === "telegram") {
+        demoText =
+          "Вот пример поста для Telegram на основе статьи.\n\n" +
+          "1) Захватывающий заход, который объясняет, почему тема важна.\n" +
+          "2) 2–3 ключевых мысли из статьи простым языком.\n" +
+          "3) Призыв перейти по ссылке и прочитать оригинал.";
+      }
+
+      setResult(demoText);
+      setIsLoading(false);
+    }, 700);
+  };
+
+  const getModeLabel = (mode: Mode) => {
+    if (mode === "about") return "О чём статья?";
+    if (mode === "thesis") return "Тезисы";
+    if (mode === "telegram") return "Пост для Telegram";
+    return "";
+  };
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        background: "linear-gradient(to bottom right, #0f172a, #1e293b)",
-        color: "#e5e7eb"
-      }}
-    >
-      <div
-        style={{
-          padding: "2.5rem 3rem",
-          borderRadius: "1.5rem",
-          backgroundColor: "rgba(15, 23, 42, 0.9)",
-          boxShadow:
-            "0 20px 25px -5px rgba(15, 23, 42, 0.7), 0 10px 10px -5px rgba(15, 23, 42, 0.6)",
-          maxWidth: "560px",
-          width: "100%",
-          textAlign: "center"
-        }}
-      >
-        <h1
-          style={{
-            fontSize: "2.25rem",
-            fontWeight: 700,
-            marginBottom: "0.75rem",
-            letterSpacing: "-0.04em"
-          }}
-        >
-          Я изучаю Next.js
+    <main className="space-y-6">
+      <header className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
+          Анализ англоязычной статьи
         </h1>
-        <p
-          style={{
-            fontSize: "1.05rem",
-            color: "#9ca3af",
-            marginBottom: "1.75rem"
-          }}
-        >
-          Проект успешно инициализирован. Откройте этот файл{" "}
-          <code style={{ background: "#020617", padding: "0.15rem 0.4rem", borderRadius: "0.35rem" }}>
-            app/page.tsx
-          </code>{" "}
-          и измените содержимое под свои задачи.
+        <p className="text-sm text-slate-400 sm:text-base">
+          Вставьте ссылку на англоязычную статью. Затем выберите, что вы хотите получить: краткое
+          описание, набор тезисов или пост для Telegram.
         </p>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.5rem",
-            fontSize: "0.9rem",
-            color: "#9ca3af"
-          }}
-        >
-          <div>Команда разработки: <code>npm run dev</code></div>
-          <div>Откройте в браузере: <code>http://localhost:3000</code></div>
+      </header>
+
+      <section className="space-y-4">
+        <label className="block text-sm font-medium text-slate-200">
+          URL статьи
+          <input
+            type="url"
+            placeholder="https://example.com/interesting-article"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-50 outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40 placeholder:text-slate-500"
+          />
+        </label>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => handleClick("about")}
+            className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
+              activeMode === "about"
+                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
+                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+            }`}
+          >
+            О чём статья?
+          </button>
+          <button
+            type="button"
+            onClick={() => handleClick("thesis")}
+            className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
+              activeMode === "thesis"
+                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
+                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+            }`}
+          >
+            Тезисы
+          </button>
+          <button
+            type="button"
+            onClick={() => handleClick("telegram")}
+            className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
+              activeMode === "telegram"
+                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
+                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+            }`}
+          >
+            Пост для Telegram
+          </button>
         </div>
-      </div>
+      </section>
+
+      {(error || result || isLoading || activeMode) && (
+        <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-100">
+              {activeMode ? `Результат: ${getModeLabel(activeMode)}` : "Результат"}
+            </h2>
+            {isLoading && (
+              <span className="text-xs text-sky-400">
+                Анализируем статью…
+              </span>
+            )}
+          </div>
+
+          {error && (
+            <p className="text-sm text-rose-400">
+              {error}
+            </p>
+          )}
+
+          {result && (
+            <pre className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">
+              {result}
+            </pre>
+          )}
+
+          {!error && !result && !isLoading && (
+            <p className="text-sm text-slate-500">
+              Выберите действие, чтобы увидеть результат анализа статьи.
+            </p>
+          )}
+        </section>
+      )}
     </main>
   );
 }
-
-
-
