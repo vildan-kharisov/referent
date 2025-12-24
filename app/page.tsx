@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Mode = "parse" | "about" | "thesis" | "telegram" | null;
+type Mode = "parse" | "about" | "thesis" | "telegram" | "translate" | null;
 
 export default function HomePage() {
   const [url, setUrl] = useState("");
@@ -39,7 +39,12 @@ export default function HomePage() {
         return;
       }
 
-      setResult(JSON.stringify(data, null, 2));
+      // Для режима перевода показываем перевод, для остальных - JSON
+      if (mode === "translate" && data.translated) {
+        setResult(data.translated);
+      } else {
+        setResult(JSON.stringify(data, null, 2));
+      }
     } catch (e) {
       setError("Произошла ошибка сети при обращении к API. Попробуйте ещё раз.");
     } finally {
@@ -52,6 +57,7 @@ export default function HomePage() {
     if (mode === "about") return "О чём статья?";
     if (mode === "thesis") return "Тезисы";
     if (mode === "telegram") return "Пост для Telegram";
+    if (mode === "translate") return "Перевести статью";
     return "";
   };
 
@@ -123,6 +129,17 @@ export default function HomePage() {
             }`}
           >
             Пост для Telegram
+          </button>
+          <button
+            type="button"
+            onClick={() => handleClick("translate")}
+            className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
+              activeMode === "translate"
+                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
+                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+            }`}
+          >
+            Перевести статью
           </button>
         </div>
       </section>
