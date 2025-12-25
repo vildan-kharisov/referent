@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
+import { callAI, processLongText, type AIMessage } from "../../lib/ai";
 
 type Mode = "parse" | "about" | "thesis" | "telegram" | "translate" | null;
 
@@ -295,6 +296,157 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Если режим "about" - генерируем краткое описание статьи через AI
+    if (body.mode === "about") {
+      const textToAnalyze = [title, content].filter(Boolean).join("\n\n");
+
+      if (!textToAnalyze.trim()) {
+        return NextResponse.json(
+          { error: "Не удалось извлечь текст статьи для анализа." },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const systemPrompt =
+          "Ты - эксперт по анализу текстов. Прочитай следующую статью и напиши краткое описание на русском языке (2-3 предложения), объясняющее основную тему и ключевые идеи статьи. Будь точным и информативным.";
+
+        const userPrompt = `Проанализируй следующую статью и напиши краткое описание:\n\nЗаголовок: ${title || "Не указан"}\n\nСодержание:\n${content}`;
+
+        const messages: AIMessage[] = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ];
+
+        // Используем processLongText для больших статей, callAI для коротких
+        let summary: string;
+        if (textToAnalyze.length > 8000) {
+          summary = await processLongText(
+            textToAnalyze,
+            systemPrompt,
+            "Проанализируй следующую часть статьи и напиши краткое описание основных идей:\n\n{text}",
+            {
+              provider: "yandex",
+              temperature: 0.5,
+              maxTokens: 500
+            }
+          );
+        } else {
+          const aiResponse = await callAI(messages, {
+            provider: "yandex",
+            temperature: 0.5,
+            maxTokens: 500
+          });
+          summary = aiResponse.content;
+        }
+
+        return NextResponse.json({
+          summary: summary.trim(),
+          original: {
+            date: date || null,
+            title: title || null,
+            content: content || null
+          }
+        });
+      } catch (error) {
+        console.error("AI summary generation error:", error);
+        return NextResponse.json(
+          {
+            error: `Не удалось сгенерировать описание статьи. ${error instanceof Error ? error.message : "Проверьте настройку AI-провайдера в .env.local"}`
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Если режим "thesis" - извлекаем ключевые тезисы через AI
+    if (body.mode === "thesis") {
+      const textToAnalyze = [title, content].filter(Boolean).join("\n\n");
+
+      if (!textToAnalyze.trim()) {
+        return NextResponse.json(
+          { error: "Не удалось извлечь текст статьи для извлечения тезисов." },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const systemPrompt =
+          "Ты - эксперт по анализу текстов. Прочитай следующую статью и выдели 5-7 ключевых тезисов на русском языке. Каждый тезис должен быть в отдельной строке и начинаться с дефиса (-). Тезисы должны отражать основные идеи и выводы статьи. Будь конкретным и информативным.";
+
+        const userPrompt = `Проанализируй следующую статью и выдели ключевые тезисы:\n\nЗаголовок: ${title || "Не указан"}\n\nСодержание:\n${content}`;
+
+        const messages: AIMessage[] = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ];
+
+        // Используем processLongText для больших статей, callAI для коротких
+        let thesisText: string;
+        if (textToAnalyze.length > 8000) {
+          thesisText = await processLongText(
+            textToAnalyze,
+            systemPrompt,
+            "Проанализируй следующую часть статьи и выдели ключевые тезисы:\n\n{text}",
+            {
+              provider: "yandex",
+              temperature: 0.4,
+              maxTokens: 800
+            }
+          );
+        } else {
+          const aiResponse = await callAI(messages, {
+            provider: "yandex",
+            temperature: 0.4,
+            maxTokens: 800
+          });
+          thesisText = aiResponse.content;
+        }
+
+        // Парсим тезисы из ответа AI (разделяем по строкам и фильтруем пустые)
+        const thesisLines = thesisText
+          .split(/\n+/)
+          .map(line => line.trim())
+          .filter(line => {
+            // Оставляем строки, которые выглядят как тезисы (начинаются с дефиса, цифры, или содержат текст)
+            return (
+              line.length > 10 &&
+              (line.startsWith("-") ||
+                line.startsWith("—") ||
+                line.match(/^\d+[\.\)]/) ||
+                line.match(/^[•\*]/) ||
+                line.length > 20)
+            );
+          })
+          .map(line => {
+            // Убираем маркеры списка в начале строки
+            return line.replace(/^[-—•\*\d+\.\)]\s*/, "").trim();
+          })
+          .filter(line => line.length > 0);
+
+        // Если не удалось распарсить, возвращаем исходный текст
+        const thesis = thesisLines.length > 0 ? thesisLines : [thesisText.trim()];
+
+        return NextResponse.json({
+          thesis: thesis,
+          thesisText: thesisText.trim(), // Оригинальный текст для отображения
+          original: {
+            date: date || null,
+            title: title || null,
+            content: content || null
+          }
+        });
+      } catch (error) {
+        console.error("AI thesis extraction error:", error);
+        return NextResponse.json(
+          {
+            error: `Не удалось извлечь тезисы из статьи. ${error instanceof Error ? error.message : "Проверьте настройку AI-провайдера в .env.local"}`
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Для остальных режимов пока возвращаем парсинг

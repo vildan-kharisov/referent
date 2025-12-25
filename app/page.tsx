@@ -39,10 +39,25 @@ export default function HomePage() {
         return;
       }
 
-      // Для режима перевода показываем перевод, для остальных - JSON
+      // Для режима перевода показываем перевод
       if (mode === "translate" && data.translated) {
         setResult(data.translated);
-      } else {
+      } 
+      // Для режима "about" показываем краткое описание
+      else if (mode === "about" && data.summary) {
+        setResult(data.summary);
+      } 
+      // Для режима "thesis" показываем тезисы
+      else if (mode === "thesis" && data.thesis) {
+        // Если тезисы в виде массива, форматируем их
+        if (Array.isArray(data.thesis)) {
+          setResult(data.thesis.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n"));
+        } else {
+          setResult(data.thesisText || data.thesis);
+        }
+      } 
+      // Для остальных режимов - JSON
+      else {
         setResult(JSON.stringify(data, null, 2));
       }
     } catch (e) {
