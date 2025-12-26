@@ -10,6 +10,19 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = async () => {
+    if (result) {
+      try {
+        await navigator.clipboard.writeText(result);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy:", err);
+      }
+    }
+  };
 
   const handleClick = async (mode: Mode) => {
     setActiveMode(mode);
@@ -56,6 +69,10 @@ export default function HomePage() {
           setResult(data.thesisText || data.thesis);
         }
       } 
+      // Для режима "telegram" показываем пост
+      else if (mode === "telegram" && data.telegramPost) {
+        setResult(data.telegramPost);
+      } 
       // Для остальных режимов - JSON
       else {
         setResult(JSON.stringify(data, null, 2));
@@ -80,7 +97,7 @@ export default function HomePage() {
     <main className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
-          Анализ англоязычной статьи
+          Референт — переводчик с ИИ-обработкой
         </h1>
         <p className="text-sm text-slate-400 sm:text-base">
           Вставьте ссылку на англоязычную статью. Затем выберите, что вы хотите получить: краткое
@@ -101,17 +118,6 @@ export default function HomePage() {
         </label>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => handleClick("parse")}
-            className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
-              activeMode === "parse"
-                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
-                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
-            }`}
-          >
-            Парсить статью
-          </button>
           <button
             type="button"
             onClick={() => handleClick("about")}
@@ -145,17 +151,6 @@ export default function HomePage() {
           >
             Пост для Telegram
           </button>
-          <button
-            type="button"
-            onClick={() => handleClick("translate")}
-            className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
-              activeMode === "translate"
-                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
-                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
-            }`}
-          >
-            Перевести статью
-          </button>
         </div>
       </section>
 
@@ -184,18 +179,51 @@ export default function HomePage() {
             <h2 className="text-sm font-semibold text-slate-100">
               {activeMode ? `Результат: ${getModeLabel(activeMode)}` : "Результат"}
             </h2>
+            {result && (
+              <button
+                onClick={copyToClipboard}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+                title="Копировать в буфер обмена"
+              >
+                {copied ? (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Скопировано
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Копировать
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {error && (
-            <p className="text-sm text-rose-400">
-              {error}
-            </p>
+            <div className="rounded-lg border border-rose-800/50 bg-rose-950/30 p-3">
+              <p className="text-sm font-medium text-rose-300">Ошибка</p>
+              <p className="mt-1 text-sm text-rose-400">
+                {error.split("\n").map((line, i) => (
+                  <span key={i}>
+                    {line}
+                    {i < error.split("\n").length - 1 && <br />}
+                  </span>
+                ))}
+              </p>
+            </div>
           )}
 
           {result && (
-            <pre className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">
-              {result}
-            </pre>
+            <div className="relative">
+              <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-sm leading-relaxed text-slate-200">
+                {result}
+              </pre>
+            </div>
           )}
 
           {!error && !result && !isLoading && activeMode && (

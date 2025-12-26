@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 import { callAI, processLongText, type AIMessage } from "../../lib/ai";
+import { getCache, setCache } from "../../lib/cache";
 
 type Mode = "parse" | "about" | "thesis" | "telegram" | "translate" | null;
 
@@ -300,6 +301,12 @@ export async function POST(req: NextRequest) {
 
     // Если режим "about" - генерируем краткое описание статьи через AI
     if (body.mode === "about") {
+      // Проверяем кэш
+      const cached = getCache(url, "about");
+      if (cached) {
+        return NextResponse.json(cached);
+      }
+
       const textToAnalyze = [title, content].filter(Boolean).join("\n\n");
 
       if (!textToAnalyze.trim()) {
@@ -342,19 +349,36 @@ export async function POST(req: NextRequest) {
           summary = aiResponse.content;
         }
 
-        return NextResponse.json({
+        const result = {
           summary: summary.trim(),
           original: {
             date: date || null,
             title: title || null,
             content: content || null
           }
-        });
+        };
+
+        // Сохраняем в кэш
+        setCache(url, "about", result);
+
+        return NextResponse.json(result);
       } catch (error) {
         console.error("AI summary generation error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Неизвестная ошибка";
+        
+        // Более информативные сообщения об ошибках
+        let userMessage = "Не удалось сгенерировать описание статьи.";
+        if (errorMessage.includes("API ключ") || errorMessage.includes("API key")) {
+          userMessage = "Не удалось сгенерировать описание статьи.\n\nПроверьте настройку AI-провайдера:\n1. Убедитесь, что в .env.local добавлены YANDEX_GPT_API_KEY и YANDEX_FOLDER_ID\n2. Проверьте корректность ключей\n3. Убедитесь, что YandexGPT включен в вашем каталоге";
+        } else if (errorMessage.includes("недоступен") || errorMessage.includes("unavailable")) {
+          userMessage = "AI-провайдер временно недоступен. Попробуйте ещё раз через несколько секунд.";
+        } else if (errorMessage.includes("баланс") || errorMessage.includes("balance")) {
+          userMessage = "Недостаточно средств на балансе AI-провайдера. Пополните баланс и попробуйте снова.";
+        }
+        
         return NextResponse.json(
           {
-            error: `Не удалось сгенерировать описание статьи. ${error instanceof Error ? error.message : "Проверьте настройку AI-провайдера в .env.local"}`
+            error: userMessage
           },
           { status: 500 }
         );
@@ -363,6 +387,12 @@ export async function POST(req: NextRequest) {
 
     // Если режим "thesis" - извлекаем ключевые тезисы через AI
     if (body.mode === "thesis") {
+      // Проверяем кэш
+      const cached = getCache(url, "thesis");
+      if (cached) {
+        return NextResponse.json(cached);
+      }
+
       const textToAnalyze = [title, content].filter(Boolean).join("\n\n");
 
       if (!textToAnalyze.trim()) {
@@ -429,7 +459,7 @@ export async function POST(req: NextRequest) {
         // Если не удалось распарсить, возвращаем исходный текст
         const thesis = thesisLines.length > 0 ? thesisLines : [thesisText.trim()];
 
-        return NextResponse.json({
+        const result = {
           thesis: thesis,
           thesisText: thesisText.trim(), // Оригинальный текст для отображения
           original: {
@@ -437,12 +467,144 @@ export async function POST(req: NextRequest) {
             title: title || null,
             content: content || null
           }
-        });
+        };
+
+        // Сохраняем в кэш
+        setCache(url, "thesis", result);
+
+        return NextResponse.json(result);
       } catch (error) {
         console.error("AI thesis extraction error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Неизвестная ошибка";
+        
+        let userMessage = "Не удалось извлечь тезисы из статьи.";
+        if (errorMessage.includes("API ключ") || errorMessage.includes("API key")) {
+          userMessage = "Не удалось извлечь тезисы из статьи.\n\nПроверьте настройку AI-провайдера:\n1. Убедитесь, что в .env.local добавлены YANDEX_GPT_API_KEY и YANDEX_FOLDER_ID\n2. Проверьте корректность ключей\n3. Убедитесь, что YandexGPT включен в вашем каталоге";
+        } else if (errorMessage.includes("недоступен") || errorMessage.includes("unavailable")) {
+          userMessage = "AI-провайдер временно недоступен. Попробуйте ещё раз через несколько секунд.";
+        } else if (errorMessage.includes("баланс") || errorMessage.includes("balance")) {
+          userMessage = "Недостаточно средств на балансе AI-провайдера. Пополните баланс и попробуйте снова.";
+        }
+        
         return NextResponse.json(
           {
-            error: `Не удалось извлечь тезисы из статьи. ${error instanceof Error ? error.message : "Проверьте настройку AI-провайдера в .env.local"}`
+            error: userMessage
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Если режим "telegram" - генерируем пост для Telegram через AI
+    if (body.mode === "telegram") {
+      // Проверяем кэш
+      const cached = getCache(url, "telegram");
+      if (cached) {
+        return NextResponse.json(cached);
+      }
+
+      const textToAnalyze = [title, content].filter(Boolean).join("\n\n");
+
+      if (!textToAnalyze.trim()) {
+        return NextResponse.json(
+          { error: "Не удалось извлечь текст статьи для генерации поста." },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const systemPrompt =
+          "Ты - профессиональный копирайтер для социальных сетей. Напиши привлекательный пост для Telegram на основе статьи. Пост должен быть:\n" +
+          "- Захватывающим и интересным (используй эмодзи для привлекательности)\n" +
+          "- Содержать 2-3 ключевых мысли из статьи простым и понятным языком\n" +
+          "- Включать призыв к действию с ссылкой на оригинальную статью\n" +
+          "- Иметь длину 500-800 символов\n" +
+          "- Быть написанным на русском языке\n" +
+          "- Иметь структуру: заголовок/заход, основной текст, призыв к действию";
+
+        const userPrompt = `Напиши пост для Telegram на основе следующей статьи:\n\nЗаголовок: ${title || "Не указан"}\n\nСодержание:\n${content}\n\nОригинальная ссылка: ${url}\n\nВажно: включи ссылку на статью в конце поста.`;
+
+        const messages: AIMessage[] = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ];
+
+        // Используем processLongText для больших статей, callAI для коротких
+        let telegramPost: string;
+        if (textToAnalyze.length > 8000) {
+          // Для длинных статей сначала извлекаем ключевые моменты, затем генерируем пост
+          const summaryPrompt =
+            "Ты - эксперт по анализу текстов. Выдели 3-5 ключевых идей из следующей статьи на русском языке. Будь кратким и конкретным.";
+          
+          const summaryText = await processLongText(
+            textToAnalyze,
+            summaryPrompt,
+            "Выдели ключевые идеи из следующей части статьи:\n\n{text}",
+            {
+              provider: "yandex",
+              temperature: 0.4,
+              maxTokens: 600
+            }
+          );
+
+          // Теперь генерируем пост на основе краткого резюме
+          const postMessages: AIMessage[] = [
+            { role: "system", content: systemPrompt },
+            { 
+              role: "user", 
+              content: `Напиши пост для Telegram на основе следующих ключевых идей из статьи:\n\n${summaryText}\n\nОригинальная ссылка: ${url}\n\nВажно: включи ссылку на статью в конце поста.`
+            }
+          ];
+
+          const aiResponse = await callAI(postMessages, {
+            provider: "yandex",
+            temperature: 0.7,
+            maxTokens: 1000
+          });
+          telegramPost = aiResponse.content;
+        } else {
+          const aiResponse = await callAI(messages, {
+            provider: "yandex",
+            temperature: 0.7,
+            maxTokens: 1000
+          });
+          telegramPost = aiResponse.content;
+        }
+
+        // Всегда добавляем ссылку на статью в конце поста
+        let finalPost = telegramPost.trim();
+        finalPost += `\n\n📖 Читать полностью: ${url}`;
+
+        const result = {
+          telegramPost: finalPost,
+          original: {
+            date: date || null,
+            title: title || null,
+            content: content || null,
+            url: url
+          }
+        };
+
+        // Сохраняем в кэш
+        setCache(url, "telegram", result);
+
+        return NextResponse.json(result);
+      } catch (error) {
+        console.error("AI telegram post generation error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Неизвестная ошибка";
+        
+        let userMessage = "Не удалось сгенерировать пост для Telegram.";
+        if (errorMessage.includes("API ключ") || errorMessage.includes("API key")) {
+          userMessage = "Не удалось сгенерировать пост для Telegram.\n\nПроверьте настройку AI-провайдера:\n1. Убедитесь, что в .env.local добавлены YANDEX_GPT_API_KEY и YANDEX_FOLDER_ID\n2. Проверьте корректность ключей\n3. Убедитесь, что YandexGPT включен в вашем каталоге";
+        } else if (errorMessage.includes("недоступен") || errorMessage.includes("unavailable")) {
+          userMessage = "AI-провайдер временно недоступен. Попробуйте ещё раз через несколько секунд.";
+        } else if (errorMessage.includes("баланс") || errorMessage.includes("balance")) {
+          userMessage = "Недостаточно средств на балансе AI-провайдера. Пополните баланс и попробуйте снова.";
+        }
+        
+        return NextResponse.json(
+          {
+            error: userMessage
           },
           { status: 500 }
         );
