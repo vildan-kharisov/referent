@@ -95,28 +95,59 @@ export async function POST(req: NextRequest) {
 
     if (!url || typeof url !== "string") {
       return NextResponse.json(
-        { error: "Поле `url` обязательно и должно быть строкой." },
+        { 
+          error: "Пожалуйста, введите корректный URL статьи.",
+          errorType: "validation"
+        },
         { status: 400 }
       );
     }
 
     let response: Response;
     try {
-      response = await fetch(url);
+      // Добавляем таймаут для fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд
+
+      response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+      });
+
+      clearTimeout(timeoutId);
     } catch (e) {
+      // Обработка различных типов ошибок
+      if (e instanceof Error && e.name === "AbortError") {
+        return NextResponse.json(
+          {
+            error: "Не удалось загрузить статью по этой ссылке",
+            errorType: "timeout"
+          },
+          { status: 408 }
+        );
+      }
       return NextResponse.json(
         {
-          error:
-            "Не удалось выполнить запрос к указанному URL. Проверьте корректность адреса и доступность сайта."
+          error: "Не удалось загрузить статью по этой ссылке",
+          errorType: "network"
         },
         { status: 502 }
       );
     }
 
     if (!response.ok) {
+      // Обработка HTTP ошибок
+      const errorType = response.status === 404 ? "not_found" : 
+                       response.status >= 500 ? "server_error" : 
+                       "http_error";
+      
       return NextResponse.json(
         {
-          error: `Удалённый сервер вернул статус ${response.status}.`
+          error: "Не удалось загрузить статью по этой ссылке",
+          errorType: errorType,
+          statusCode: response.status
         },
         { status: 502 }
       );
@@ -311,7 +342,10 @@ export async function POST(req: NextRequest) {
 
       if (!textToAnalyze.trim()) {
         return NextResponse.json(
-          { error: "Не удалось извлечь текст статьи для анализа." },
+          { 
+            error: "Не удалось извлечь текст статьи для анализа. Возможно, статья не содержит текстового контента.",
+            errorType: "parsing"
+          },
           { status: 400 }
         );
       }
@@ -378,7 +412,8 @@ export async function POST(req: NextRequest) {
         
         return NextResponse.json(
           {
-            error: userMessage
+            error: userMessage,
+            errorType: "ai_error"
           },
           { status: 500 }
         );
@@ -488,7 +523,8 @@ export async function POST(req: NextRequest) {
         
         return NextResponse.json(
           {
-            error: userMessage
+            error: userMessage,
+            errorType: "ai_error"
           },
           { status: 500 }
         );
@@ -604,7 +640,8 @@ export async function POST(req: NextRequest) {
         
         return NextResponse.json(
           {
-            error: userMessage
+            error: userMessage,
+            errorType: "ai_error"
           },
           { status: 500 }
         );

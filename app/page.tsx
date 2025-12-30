@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Alert, AlertTitle, AlertDescription } from "./components/ui/alert";
 
 type Mode = "parse" | "about" | "thesis" | "telegram" | "translate" | null;
 
@@ -9,8 +10,90 @@ export default function HomePage() {
   const [activeMode, setActiveMode] = useState<Mode>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [currentProcess, setCurrentProcess] = useState<string | null>(null);
+
+  // Функция для преобразования ошибок в дружественные сообщения
+  const getFriendlyError = (errorData: any): { message: string; type: string } => {
+    const errorType = errorData?.errorType || "unknown";
+    const rawError = errorData?.error || "";
+
+    switch (errorType) {
+      case "timeout":
+        return {
+          message: "Не удалось загрузить статью по этой ссылке. Превышено время ожидания.",
+          type: "timeout"
+        };
+      case "network":
+        return {
+          message: "Не удалось загрузить статью по этой ссылке. Проверьте подключение к интернету.",
+          type: "network"
+        };
+      case "not_found":
+        return {
+          message: "Не удалось загрузить статью по этой ссылке. Страница не найдена (404).",
+          type: "not_found"
+        };
+      case "server_error":
+        return {
+          message: "Не удалось загрузить статью по этой ссылке. Ошибка сервера (500+).",
+          type: "server_error"
+        };
+      case "http_error":
+        return {
+          message: "Не удалось загрузить статью по этой ссылке.",
+          type: "http_error"
+        };
+      case "validation":
+        return {
+          message: rawError || "Пожалуйста, введите корректный URL статьи.",
+          type: "validation"
+        };
+      case "parsing":
+        return {
+          message: rawError || "Не удалось извлечь текст из статьи. Возможно, статья не содержит текстового контента.",
+          type: "parsing"
+        };
+      case "ai_error":
+        // Для AI ошибок проверяем, есть ли уже дружественное сообщение
+        if (rawError.includes("API ключ") || rawError.includes("API key")) {
+          return {
+            message: "Не удалось обработать статью через AI.\n\nПроверьте настройку AI-провайдера:\n1. Убедитесь, что в .env.local добавлены YANDEX_GPT_API_KEY и YANDEX_FOLDER_ID\n2. Проверьте корректность ключей\n3. Убедитесь, что YandexGPT включен в вашем каталоге",
+            type: "ai_error"
+          };
+        }
+        if (rawError.includes("недоступен") || rawError.includes("unavailable")) {
+          return {
+            message: "AI-провайдер временно недоступен. Попробуйте ещё раз через несколько секунд.",
+            type: "ai_error"
+          };
+        }
+        if (rawError.includes("баланс") || rawError.includes("balance")) {
+          return {
+            message: "Недостаточно средств на балансе AI-провайдера. Пополните баланс и попробуйте снова.",
+            type: "ai_error"
+          };
+        }
+        return {
+          message: rawError || "Не удалось обработать статью через AI. Попробуйте ещё раз.",
+          type: "ai_error"
+        };
+      default:
+        // Если это уже дружественное сообщение, используем его
+        if (rawError && !rawError.includes("error") && !rawError.includes("Error")) {
+          return {
+            message: rawError,
+            type: "unknown"
+          };
+        }
+        return {
+          message: "Произошла ошибка при обработке статьи. Попробуйте ещё раз.",
+          type: "unknown"
+        };
+    }
+  };
 
   const copyToClipboard = async () => {
     if (result) {
@@ -28,15 +111,20 @@ export default function HomePage() {
     setActiveMode(mode);
     setError(null);
     setResult(null);
+    setCurrentProcess("Загружаю статью...");
 
     if (!url.trim()) {
-      setError("Пожалуйста, введите URL англоязычной статьи.");
+      const friendlyError = getFriendlyError({ errorType: "validation" });
+      setError(friendlyError.message);
+      setErrorType(friendlyError.type);
+      setCurrentProcess(null);
       return;
     }
 
     setIsLoading(true);
 
     try {
+      setCurrentProcess("Парсю статью...");
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: {
@@ -45,10 +133,14 @@ export default function HomePage() {
         body: JSON.stringify({ url, mode })
       });
 
+      setCurrentProcess("Обрабатываю через AI...");
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data?.error || "Не удалось разобрать статью. Попробуйте другой URL.");
+        const friendlyError = getFriendlyError(data);
+        setError(friendlyError.message);
+        setErrorType(friendlyError.type);
+        setCurrentProcess(null);
         return;
       }
 
@@ -77,8 +169,16 @@ export default function HomePage() {
       else {
         setResult(JSON.stringify(data, null, 2));
       }
+      
+      setCurrentProcess(null);
     } catch (e) {
-      setError("Произошла ошибка сети при обращении к API. Попробуйте ещё раз.");
+      const friendlyError = getFriendlyError({
+        errorType: "network",
+        error: "Произошла ошибка сети при обращении к API."
+      });
+      setError(friendlyError.message);
+      setErrorType(friendlyError.type);
+      setCurrentProcess(null);
     } finally {
       setIsLoading(false);
     }
@@ -110,17 +210,21 @@ export default function HomePage() {
           URL статьи
           <input
             type="url"
-            placeholder="https://example.com/interesting-article"
+            placeholder="Введите URL статьи, например: https://example.com/article"
             value={url}
             onChange={e => setUrl(e.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-50 outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40 placeholder:text-slate-500"
           />
+          <p className="mt-1.5 text-xs text-slate-500">
+            Укажите ссылку на англоязычную статью
+          </p>
         </label>
 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => handleClick("about")}
+            title="Получить краткое описание статьи (2-3 предложения) с основными темами и ключевыми идеями"
             className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
               activeMode === "about"
                 ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
@@ -132,6 +236,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => handleClick("thesis")}
+            title="Извлечь 5-7 ключевых тезисов из статьи, отражающих основные идеи и выводы"
             className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
               activeMode === "thesis"
                 ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
@@ -143,6 +248,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => handleClick("telegram")}
+            title="Сгенерировать готовый пост для Telegram с захватывающим заголовком, ключевыми мыслями и ссылкой на статью"
             className={`inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4 ${
               activeMode === "telegram"
                 ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
@@ -153,6 +259,14 @@ export default function HomePage() {
           </button>
         </div>
       </section>
+
+      {currentProcess && (
+        <section className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
+          <p className="text-xs text-slate-400">
+            {currentProcess}
+          </p>
+        </section>
+      )}
 
       {isLoading && (
         <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3">
@@ -205,17 +319,17 @@ export default function HomePage() {
           </div>
 
           {error && (
-            <div className="rounded-lg border border-rose-800/50 bg-rose-950/30 p-3">
-              <p className="text-sm font-medium text-rose-300">Ошибка</p>
-              <p className="mt-1 text-sm text-rose-400">
+            <Alert variant="destructive">
+              <AlertTitle className="text-rose-300">Ошибка</AlertTitle>
+              <AlertDescription className="mt-2 text-rose-400">
                 {error.split("\n").map((line, i) => (
                   <span key={i}>
                     {line}
                     {i < error.split("\n").length - 1 && <br />}
                   </span>
                 ))}
-              </p>
-            </div>
+              </AlertDescription>
+            </Alert>
           )}
 
           {result && (
