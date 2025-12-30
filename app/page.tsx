@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Alert, AlertTitle, AlertDescription } from "./components/ui/alert";
 
 type Mode = "parse" | "about" | "thesis" | "telegram" | "translate" | null;
@@ -14,6 +14,19 @@ export default function HomePage() {
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [currentProcess, setCurrentProcess] = useState<string | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  // Функция для очистки всех состояний
+  const handleClear = () => {
+    setUrl("");
+    setActiveMode(null);
+    setError(null);
+    setErrorType(null);
+    setResult(null);
+    setCopied(false);
+    setCurrentProcess(null);
+    setIsLoading(false);
+  };
 
   // Функция для преобразования ошибок в дружественные сообщения
   const getFriendlyError = (errorData: any): { message: string; type: string } => {
@@ -171,6 +184,11 @@ export default function HomePage() {
       }
       
       setCurrentProcess(null);
+      
+      // Автоматическая прокрутка к результатам после успешной генерации
+      setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     } catch (e) {
       const friendlyError = getFriendlyError({
         errorType: "network",
@@ -221,6 +239,17 @@ export default function HomePage() {
         </label>
 
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleClear}
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:flex-none sm:px-4"
+            title="Очистить все поля и результаты"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Очистить
+          </button>
           <button
             type="button"
             onClick={() => handleClick("about")}
@@ -288,7 +317,7 @@ export default function HomePage() {
       )}
 
       {(error || result || activeMode) && (
-        <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+        <section ref={resultRef} className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-100">
               {activeMode ? `Результат: ${getModeLabel(activeMode)}` : "Результат"}
