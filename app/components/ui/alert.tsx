@@ -8,8 +8,8 @@ const Alert = React.forwardRef<
 >(({ className, variant = "default", ...props }, ref) => {
   const baseStyles = "relative w-full rounded-lg border px-4 py-3 text-sm";
   const variantStyles = {
-    default: "border-slate-800 bg-slate-950/60 text-slate-200",
-    destructive: "border-rose-800/50 bg-rose-950/30 text-rose-200"
+    default: "border-slate-200 bg-slate-50 text-slate-900 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200",
+    destructive: "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-200"
   };
 
   return (

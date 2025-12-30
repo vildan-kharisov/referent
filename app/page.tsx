@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Alert, AlertTitle, AlertDescription } from "./components/ui/alert";
+import { ThemeToggle } from "./components/theme-toggle";
 
 type Mode = "parse" | "about" | "thesis" | "telegram" | "translate" | null;
 
@@ -14,7 +15,40 @@ export default function HomePage() {
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [currentProcess, setCurrentProcess] = useState<string | null>(null);
+  const [isUrlValid, setIsUrlValid] = useState<boolean | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+
+  // Функция валидации URL
+  const validateUrl = (urlString: string): boolean => {
+    if (!urlString.trim()) {
+      return false;
+    }
+    try {
+      const url = new URL(urlString);
+      // Проверяем, что это http или https
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  // Обработка изменения URL с валидацией
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUrl = e.target.value;
+    setUrl(newUrl);
+    
+    if (newUrl.trim() === "") {
+      setIsUrlValid(null);
+    } else {
+      setIsUrlValid(validateUrl(newUrl));
+    }
+    
+    // Очищаем ошибки при изменении URL
+    if (error) {
+      setError(null);
+      setErrorType(null);
+    }
+  };
 
   // Функция для очистки всех состояний
   const handleClear = () => {
@@ -26,6 +60,7 @@ export default function HomePage() {
     setCopied(false);
     setCurrentProcess(null);
     setIsLoading(false);
+    setIsUrlValid(null);
   };
 
   // Функция для преобразования ошибок в дружественные сообщения
@@ -214,10 +249,15 @@ export default function HomePage() {
   return (
     <main className="space-y-4 sm:space-y-6">
       <header className="space-y-1.5 sm:space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl md:text-3xl">
-          Референт — переводчик с ИИ-обработкой
-        </h1>
-        <p className="text-xs leading-relaxed text-slate-400 sm:text-sm sm:leading-normal md:text-base">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 sm:text-2xl md:text-3xl">
+              Референт — переводчик с ИИ-обработкой
+            </h1>
+          </div>
+          <ThemeToggle />
+        </div>
+        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 sm:text-sm sm:leading-normal md:text-base">
           Вставьте ссылку на англоязычную статью. Затем выберите, что вы хотите получить: краткое
           описание, набор тезисов или пост для Telegram.
         </p>
@@ -226,13 +266,13 @@ export default function HomePage() {
       <section className="space-y-3 sm:space-y-4">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <label className="block text-xs font-medium text-slate-200 sm:text-sm">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-200 sm:text-sm">
               URL статьи
             </label>
             <button
               type="button"
               onClick={handleClear}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-700 bg-slate-900/50 px-2 py-1 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:px-2.5 sm:py-1.5"
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:px-2.5 sm:py-1.5"
               title="Очистить все поля и результаты"
             >
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,27 +281,76 @@ export default function HomePage() {
               <span className="hidden min-[375px]:inline">Очистить</span>
             </button>
           </div>
-          <input
-            type="url"
-            placeholder="Введите URL статьи, например: https://example.com/article"
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            className="w-full rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-2 text-xs text-slate-50 outline-none ring-0 transition placeholder:text-slate-500 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40 sm:text-sm"
-          />
-          <p className="text-xs leading-relaxed text-slate-500">
-            Укажите ссылку на англоязычную статью
-          </p>
+          <div className="relative">
+            <input
+              type="url"
+              placeholder="Введите URL статьи, например: https://example.com/article"
+              value={url}
+              onChange={handleUrlChange}
+              className={`w-full rounded-lg border bg-white px-3 py-2 pr-9 text-xs text-slate-900 outline-none ring-0 transition placeholder:text-slate-400 focus:ring-2 dark:bg-slate-900/70 dark:text-slate-50 dark:placeholder:text-slate-500 sm:text-sm ${
+                isUrlValid === true
+                  ? "border-emerald-500/50 focus:border-emerald-500 focus:ring-emerald-500/40 dark:border-emerald-500/50 dark:focus:border-emerald-500"
+                  : isUrlValid === false
+                  ? "border-rose-500/50 focus:border-rose-500 focus:ring-rose-500/40 dark:border-rose-500/50 dark:focus:border-rose-500"
+                  : "border-slate-300 focus:border-sky-500 focus:ring-sky-500/40 dark:border-slate-800 dark:focus:border-sky-500"
+              }`}
+            />
+            {isUrlValid !== null && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {isUrlValid ? (
+                  <svg
+                    className="h-4 w-4 text-emerald-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="h-4 w-4 text-rose-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-500">
+              Укажите ссылку на англоязычную статью
+            </p>
+            {isUrlValid === false && url.trim() && (
+              <p className="text-xs text-rose-500 dark:text-rose-400">
+                Неверный формат URL
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             onClick={() => handleClick("about")}
+            disabled={!isUrlValid || isLoading}
             title="Получить краткое описание статьи (2-3 предложения) с основными темами и ключевыми идеями"
-            className={`inline-flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:w-auto sm:flex-1 sm:text-sm md:flex-none md:px-4 ${
+            className={`inline-flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-slate-200 dark:disabled:hover:bg-slate-800 sm:w-auto sm:flex-1 sm:text-sm md:flex-none md:px-4 ${
               activeMode === "about"
-                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
-                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+                ? "bg-sky-500 text-white shadow shadow-sky-500/40 dark:text-slate-950"
+                : "bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             }`}
           >
             О чём статья?
@@ -269,11 +358,12 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => handleClick("thesis")}
+            disabled={!isUrlValid || isLoading}
             title="Извлечь 5-7 ключевых тезисов из статьи, отражающих основные идеи и выводы"
-            className={`inline-flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:w-auto sm:flex-1 sm:text-sm md:flex-none md:px-4 ${
+            className={`inline-flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-slate-200 dark:disabled:hover:bg-slate-800 sm:w-auto sm:flex-1 sm:text-sm md:flex-none md:px-4 ${
               activeMode === "thesis"
-                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
-                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+                ? "bg-sky-500 text-white shadow shadow-sky-500/40 dark:text-slate-950"
+                : "bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             }`}
           >
             Тезисы
@@ -281,11 +371,12 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => handleClick("telegram")}
+            disabled={!isUrlValid || isLoading}
             title="Сгенерировать готовый пост для Telegram с захватывающим заголовком, ключевыми мыслями и ссылкой на статью"
-            className={`inline-flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:w-auto sm:flex-1 sm:text-sm md:flex-none md:px-4 ${
+            className={`inline-flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-slate-200 dark:disabled:hover:bg-slate-800 sm:w-auto sm:flex-1 sm:text-sm md:flex-none md:px-4 ${
               activeMode === "telegram"
-                ? "bg-sky-500 text-slate-950 shadow shadow-sky-500/40"
-                : "bg-slate-800 text-slate-100 hover:bg-slate-700"
+                ? "bg-sky-500 text-white shadow shadow-sky-500/40 dark:text-slate-950"
+                : "bg-slate-200 text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             }`}
           >
             Пост для Telegram
@@ -294,42 +385,42 @@ export default function HomePage() {
       </section>
 
       {currentProcess && (
-        <section className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 sm:px-4">
-          <p className="text-xs leading-relaxed text-slate-400 sm:text-sm">
+        <section className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60 sm:px-4">
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 sm:text-sm">
             {currentProcess}
           </p>
         </section>
       )}
 
       {isLoading && (
-        <section className="space-y-2.5 rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2.5 sm:space-y-3 sm:px-4 sm:py-3">
+        <section className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950/80 sm:space-y-3 sm:px-4 sm:py-3">
           <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-            <h2 className="text-xs font-semibold text-slate-100 sm:text-sm">
+            <h2 className="text-xs font-semibold text-slate-900 dark:text-slate-100 sm:text-sm">
               Генерация ответа
             </h2>
-            <span className="text-xs text-sky-400">
+            <span className="text-xs text-sky-600 dark:text-sky-400">
               Идёт обработка статьи…
             </span>
           </div>
-          <p className="text-xs leading-relaxed text-slate-400 sm:text-sm">
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 sm:text-sm">
             Мы анализируем текст по указанному URL и подготавливаем {activeMode && getModeLabel(activeMode).toLowerCase()}.
           </p>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
             <div className="h-full w-1/2 animate-pulse bg-sky-500" />
           </div>
         </section>
       )}
 
       {(error || result || activeMode) && (
-        <section ref={resultRef} className="space-y-2.5 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 sm:space-y-3 sm:px-4 sm:py-3">
+        <section ref={resultRef} className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950/60 sm:space-y-3 sm:px-4 sm:py-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xs font-semibold text-slate-100 sm:text-sm">
+            <h2 className="text-xs font-semibold text-slate-900 dark:text-slate-100 sm:text-sm">
               {activeMode ? `Результат: ${getModeLabel(activeMode)}` : "Результат"}
             </h2>
             {result && (
               <button
                 onClick={copyToClipboard}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 sm:w-auto sm:justify-start"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:w-auto sm:justify-start"
                 title="Копировать в буфер обмена"
               >
                 {copied ? (
@@ -353,10 +444,10 @@ export default function HomePage() {
 
           {error && (
             <Alert variant="destructive" className="px-3 py-2.5 sm:px-4 sm:py-3">
-              <AlertTitle className="text-xs font-medium text-rose-300 sm:text-sm">
+              <AlertTitle className="text-xs font-medium text-rose-700 dark:text-rose-300 sm:text-sm">
                 Ошибка
               </AlertTitle>
-              <AlertDescription className="mt-1.5 text-xs leading-relaxed text-rose-400 sm:mt-2 sm:text-sm">
+              <AlertDescription className="mt-1.5 text-xs leading-relaxed text-rose-600 dark:text-rose-400 sm:mt-2 sm:text-sm">
                 {error.split("\n").map((line, i) => (
                   <span key={i}>
                     {line}
@@ -369,14 +460,14 @@ export default function HomePage() {
 
           {result && (
             <div className="relative">
-              <pre className="mt-1 max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-slate-800 bg-slate-900/50 p-2.5 text-xs leading-relaxed text-slate-200 sm:p-3 sm:text-sm">
+              <pre className="mt-1 max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-white p-2.5 text-xs leading-relaxed text-slate-900 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-200 sm:p-3 sm:text-sm">
                 {result}
               </pre>
             </div>
           )}
 
           {!error && !result && !isLoading && activeMode && (
-            <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-500 sm:text-sm">
               Выберите действие, чтобы увидеть результат анализа статьи.
             </p>
           )}
